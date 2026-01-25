@@ -1,0 +1,35 @@
+# NOW the script convert to nearly 300kB
+# The script is running automaticly via systemd
+
+# To manage the automete running of script you can do this by
+
+Run these commands to tell the system to load the new service and start it immediately:
+
+**Reload the daemon:** 
+```
+sudo systemctl daemon-reload
+```
+**Enable on boot:** `
+```
+sudo systemctl enable image-monitor.service`
+```
+
+restart the system and check if script is running automaticly in background
+
+
+after restart we can check and monitor our script
+
+- **Check status:**  to see if it's currently running`
+
+```
+sudo systemctl status image-monitor.service
+```
+- **Stop it:** 
+
+```
+sudo systemctl stop image-monitor.service
+```
+- **View logs:** 
+```
+journalctl -u image-monitor.service -f
+

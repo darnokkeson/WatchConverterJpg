@@ -1,0 +1,5 @@
+# this script converts color picture to monochrome (black and white only)
+
+# To run script
+
+# ./toMonochrome ColorPictureName.jpg
