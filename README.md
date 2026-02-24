@@ -1,7 +1,7 @@
-# Automatic JPG Optimization on Ubuntu Using systemd
+# Automatic Image Optimization on Ubuntu Using systemd
 
 To save space on expensive server storage, I needed to downsize my pictures to the smallest size possible **without visible quality loss**.  
-To achieve this, I created a Bash script that automatically monitors a folder and optimizes new JPG images.  
+To achieve this, I created a Bash script that automatically monitors a folder, converts any incoming PNGs to JPEG, and then optimizes the resulting JPEG images.  
 The script is started automatically using **systemd** on Ubuntu Linux.
 
 ---
@@ -20,6 +20,13 @@ This tool optimizes JPEG images without visible quality degradation.
 
 ```bash
 sudo apt install jpegoptim
+```
+
+### Install `ImageMagick` (for PNG → JPG conversion)
+The `convert` utility is provided by ImageMagick and is required if you want the script to convert incoming PNG files into JPEGs before optimization.
+
+```bash
+sudo apt install imagemagick
 ```
 
 ---
@@ -57,24 +64,33 @@ SIZE_LIMIT=358400
 # Enter the directory so we can work with just the filename
 cd "$TARGET_DIR" || exit
 
-echo "Monitoring for new JPGs in $(pwd)..."
+echo "Monitoring for new JPGs and PNGs in $(pwd)..."
 
 # Monitor for 'create' and 'moved_to' events
 inotifywait -m -e create -e moved_to --format "%f" . | while read FILENAME
 do
-    # Check for JPG extension
-    if [[ "$FILENAME" =~ \.(jpg|jpeg|JPG|JPEG)$ ]]; then
-
-        # Wait to ensure the file is fully written
+    # --- PNG to JPG conversion ---
+    if [[ "$FILENAME" =~ \.(png|PNG)$ ]]; then
         sleep 1
+        JPG_FILENAME="${FILENAME%.*}.jpg"
+        echo "Converting PNG to JPG: $FILENAME -> $JPG_FILENAME"
+        convert "$FILENAME" "$JPG_FILENAME"
+        if [ $? -eq 0 ]; then
+            rm "$FILENAME"
+            echo "Removed original PNG: $FILENAME"
+            FILENAME="$JPG_FILENAME"
+        else
+            echo "Conversion failed for: $FILENAME"
+            continue
+        fi
+    fi
 
-        # Get file size in bytes
+    # --- JPG optimization ---
+    if [[ "$FILENAME" =~ \.(jpg|jpeg|JPG|JPEG)$ ]]; then
+        sleep 1
         FILE_SIZE=$(stat -c%s "$FILENAME")
-
         if [ "$FILE_SIZE" -gt "$SIZE_LIMIT" ]; then
             echo "Optimization triggered: $FILENAME ($FILE_SIZE bytes)"
-
-            # Optimize image
             jpegoptim --size=300k "$FILENAME"
         fi
     fi
@@ -97,7 +113,7 @@ Run the script:
 ./watch_convert_jpg.sh
 ```
 
-Now copy a JPG image into the folder.
+Now copy a JPG or PNG image into the folder. PNGs will be converted to JPEG before optimization.
 
 Example:
 - Original size: 967 kB  
@@ -118,7 +134,7 @@ Paste the following content and replace paths and username:
 
 ```ini
 [Unit]
-Description=Auto Detect and Optimize JPG Files
+Description=Auto Detect, Convert PNG to JPG and Optimize Images
 After=network.target
 
 [Service]
