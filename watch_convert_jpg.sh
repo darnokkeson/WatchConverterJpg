@@ -12,26 +12,48 @@ do
     # --- PNG to JPG conversion ---
     if [[ "$FILENAME" =~ \.(png|PNG)$ ]]; then
         sleep 1
+        # Create OUTPUT folder if it doesn't exist
+        mkdir -p OUTPUT
         JPG_FILENAME="${FILENAME%.*}.jpg"
         echo "Converting PNG to JPG: $FILENAME -> $JPG_FILENAME"
-        convert "$FILENAME" "$JPG_FILENAME"
+        convert "$FILENAME" "OUTPUT/$JPG_FILENAME"
         if [ $? -eq 0 ]; then
-            rm "$FILENAME"
-            echo "Removed original PNG: $FILENAME"
-            FILENAME="$JPG_FILENAME"
+            echo "Original PNG kept: $FILENAME"
+            FILENAME="OUTPUT/$JPG_FILENAME"
         else
             echo "Conversion failed for: $FILENAME"
             continue
         fi
     fi
 
-    # --- JPG optimization ---
+    # --- JPG optimization with different file sizes ---
     if [[ "$FILENAME" =~ \.(jpg|jpeg|JPG|JPEG)$ ]]; then
         sleep 1
-        FILE_SIZE=$(stat -c%s "$FILENAME")
-        if [ "$FILE_SIZE" -gt "$SIZE_LIMIT" ]; then
-            echo "Optimization triggered: $FILENAME ($FILE_SIZE bytes)"
-            jpegoptim --size=300k "$FILENAME"
-        fi
+        # Create OUTPUT folder if it doesn't exist
+        mkdir -p OUTPUT
+        
+        # Get just the filename without path
+        BASE_FILENAME=$(basename "$FILENAME")
+        
+        # Define file sizes in kB for optimized versions
+        SIZES=(300 250 200 150 120 100 80)
+        
+        echo "Creating optimized versions of: $BASE_FILENAME"
+        
+        # Create optimized versions for each file size
+        for SIZE in "${SIZES[@]}"; do
+            OUTPUT_FILENAME="${BASE_FILENAME%.*}_${SIZE}kb.jpg"
+            echo "  Optimizing to ${SIZE}kB: $OUTPUT_FILENAME"
+            # Copy original to OUTPUT folder and optimize
+            cp "$FILENAME" "OUTPUT/$OUTPUT_FILENAME"
+            jpegoptim --size=${SIZE}k "OUTPUT/$OUTPUT_FILENAME"
+            if [ $? -eq 0 ]; then
+                echo "  Created: OUTPUT/$OUTPUT_FILENAME"
+            else
+                echo "  Failed to optimize: $OUTPUT_FILENAME"
+            fi
+        done
+        
+        echo "Optimization complete. Original file kept: $BASE_FILENAME"
     fi
 done

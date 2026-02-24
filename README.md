@@ -72,27 +72,49 @@ do
     # --- PNG to JPG conversion ---
     if [[ "$FILENAME" =~ \.(png|PNG)$ ]]; then
         sleep 1
+        # Create OUTPUT folder if it doesn't exist
+        mkdir -p OUTPUT
         JPG_FILENAME="${FILENAME%.*}.jpg"
         echo "Converting PNG to JPG: $FILENAME -> $JPG_FILENAME"
-        convert "$FILENAME" "$JPG_FILENAME"
+        convert "$FILENAME" "OUTPUT/$JPG_FILENAME"
         if [ $? -eq 0 ]; then
-            rm "$FILENAME"
-            echo "Removed original PNG: $FILENAME"
-            FILENAME="$JPG_FILENAME"
+            echo "Original PNG kept: $FILENAME"
+            FILENAME="OUTPUT/$JPG_FILENAME"
         else
             echo "Conversion failed for: $FILENAME"
             continue
         fi
     fi
 
-    # --- JPG optimization ---
+    # --- JPG optimization with different file sizes ---
     if [[ "$FILENAME" =~ \.(jpg|jpeg|JPG|JPEG)$ ]]; then
         sleep 1
-        FILE_SIZE=$(stat -c%s "$FILENAME")
-        if [ "$FILE_SIZE" -gt "$SIZE_LIMIT" ]; then
-            echo "Optimization triggered: $FILENAME ($FILE_SIZE bytes)"
-            jpegoptim --size=300k "$FILENAME"
-        fi
+        # Create OUTPUT folder if it doesn't exist
+        mkdir -p OUTPUT
+        
+        # Get just the filename without path
+        BASE_FILENAME=$(basename "$FILENAME")
+        
+        # Define file sizes in kB for optimized versions
+        SIZES=(300 250 200 150 120 100 80)
+        
+        echo "Creating optimized versions of: $BASE_FILENAME"
+        
+        # Create optimized versions for each file size
+        for SIZE in "${SIZES[@]}"; do
+            OUTPUT_FILENAME="${BASE_FILENAME%.*}_${SIZE}kb.jpg"
+            echo "  Optimizing to ${SIZE}kB: $OUTPUT_FILENAME"
+            # Copy original to OUTPUT folder and optimize
+            cp "$FILENAME" "OUTPUT/$OUTPUT_FILENAME"
+            jpegoptim --size=${SIZE}k "OUTPUT/$OUTPUT_FILENAME"
+            if [ $? -eq 0 ]; then
+                echo "  Created: OUTPUT/$OUTPUT_FILENAME"
+            else
+                echo "  Failed to optimize: $OUTPUT_FILENAME"
+            fi
+        done
+        
+        echo "Optimization complete. Original file kept: $BASE_FILENAME"
     fi
 done
 ```
@@ -113,12 +135,23 @@ Run the script:
 ./watch_convert_jpg.sh
 ```
 
-Now copy a JPG or PNG image into the folder. PNGs will be converted to JPEG before optimization.
+Now copy a JPG or PNG image into the folder. The script will:
+- Convert PNGs to JPEG format (saved to OUTPUT folder, original PNG kept)
+- Create multiple optimized versions of JPG images at different file sizes: 300kB, 250kB, 200kB, 150kB, 120kB, 100kB, and 80kB
+- Save all created files in the `OUTPUT/` folder automatically created in the working directory
+- Keep original files intact
 
 Example:
-- Original size: 967 kB  
-- Optimized size: 299 kB  
-- Visual quality: No noticeable difference  
+- Original image: `photo.jpg` (967 kB)
+- Created optimized versions in OUTPUT folder:
+  - `photo_300kb.jpg` (300 kB)
+  - `photo_250kb.jpg` (250 kB)
+  - `photo_200kb.jpg` (200 kB)
+  - `photo_150kb.jpg` (150 kB)
+  - `photo_120kb.jpg` (120 kB)
+  - `photo_100kb.jpg` (100 kB)
+  - `photo_80kb.jpg` (80 kB)
+- Visual quality: No noticeable difference
 
 ---
 
@@ -246,9 +279,12 @@ Run:
 
 ## Final Notes
 
-- Images are optimized automatically
+- Images are automatically converted (PNG to JPG) and optimized
+- Multiple optimized versions are created for each image (300, 250, 200, 150, 120, 100, and 80 kB)
+- All created files are automatically saved in the `OUTPUT/` folder
+- Original files are preserved and never deleted
 - Runs silently via systemd
-- Saves significant disk space
+- Saves significant disk space with multiple size options
 - Optional monochrome conversion included
 
 Thanks!
